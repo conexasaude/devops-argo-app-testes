@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-hpa-test
+  namespace: argo-app-test-hml
+  labels:
+    app: nginx-hpa-test
+spec:
+  # IMPORTANTE: sem replicas (HPA manda)
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: "50%"
+      maxUnavailable: "25%"
+
+  selector:
+    matchLabels:
+      app: nginx-hpa-test
+
+  template:
+    metadata:
+      labels:
+        app: nginx-hpa-test
+    spec:
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: nginx
+          image: nginx:1.25
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+
+      # Preferir rodar em spot (Karpenter)
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: karpenter.sh/capacity-type
+                    operator: In
+                    values: ["spot"]
+
+        # Evitar que os pods fiquem no mesmo node (bom com HPA)
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: nginx-hpa-test
+                topologyKey: kubernetes.io/hostname
+
+      # Espalhar por AZ (zone)
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: nginx-hpa-test
