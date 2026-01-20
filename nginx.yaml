@@ -2,16 +2,17 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-hpa-test
-  namespace: argo-app-test-hml
-  labels:
-    app: nginx-hpa-test
+  namespace: conexa
 spec:
-  # IMPORTANTE: sem replicas (HPA manda)
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: "50%"
       maxUnavailable: "25%"
+
+  # ✅ TESTE: deixe SEM replicas para ver o default do K8s (1),
+  # e depois o HPA ajustando para minReplicas.
+  # replicas: 1
 
   selector:
     matchLabels:
@@ -22,13 +23,15 @@ spec:
       labels:
         app: nginx-hpa-test
     spec:
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 10
 
       containers:
         - name: nginx
           image: nginx:1.25
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
+
           resources:
             requests:
               cpu: 50m
@@ -37,9 +40,28 @@ spec:
               cpu: 200m
               memory: 128Mi
 
-      # Preferir rodar em spot (Karpenter)
+          # ✅ Health checks (sem Service/Ingress, kubelet acessa o pod direto)
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
       affinity:
         nodeAffinity:
+          # ✅ Preferir SPOT (Karpenter)
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 100
               preference:
@@ -48,7 +70,22 @@ spec:
                     operator: In
                     values: ["spot"]
 
-        # Evitar que os pods fiquem no mesmo node (bom com HPA)
+          # ✅ TESTE: forçar arquitetura (descomente UMA opção)
+          # requiredDuringSchedulingIgnoredDuringExecution:
+          #   nodeSelectorTerms:
+          #   - matchExpressions:
+          #     - key: kubernetes.io/arch
+          #       operator: In
+          #       values: ["amd64"]
+
+          # requiredDuringSchedulingIgnoredDuringExecution:
+          #   nodeSelectorTerms:
+          #   - matchExpressions:
+          #     - key: kubernetes.io/arch
+          #       operator: In
+          #       values: ["arm64"]
+
+        # ✅ Evitar colocar todos os pods no mesmo node (bom quando escalar)
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 100
@@ -58,7 +95,7 @@ spec:
                     app: nginx-hpa-test
                 topologyKey: kubernetes.io/hostname
 
-      # Espalhar por AZ (zone)
+      # ✅ Espalhar por AZ
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: topology.kubernetes.io/zone
@@ -66,3 +103,26 @@ spec:
           labelSelector:
             matchLabels:
               app: nginx-hpa-test
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nginx-hpa-test
+  namespace: conexa
+spec:
+  minReplicas: 2
+  maxReplicas: 6
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-hpa-test
+
+  # ✅ CPU é o mais fácil pra testar (precisa metrics-server)
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 30
