@@ -89,3 +89,49 @@ nginx-hpa-test-54bcdb89f5-wkxj7  ip-10-20-22-128.sa-east-1.compute.internal  sa-
 * **Spot**: todos os nodes estão como `spot` (fallback para on-demand não foi necessário nesse teste)
 * **Arquitetura**: mistura de `amd64` e `arm64` (testando multi-arch)
 * `sa-east-1b` aparece duas vezes porque com 4 pods e 3 AZs, a distribuição mais comum é **2 / 1 / 1** (respeitando `maxSkew: 1`)
+
+
+
+# Entendendo Affinity, Anti-Affinity e Spread por AZ (Kubernetes)
+
+Este documento explica as regras de **agendamento de pods** usadas no teste `nginx-hpa-test`
+para alcançar **alta disponibilidade**, **uso de Spot**, e **distribuição por AZ**.
+
+---
+
+## 📌 Bloco analisado
+
+```yaml
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: karpenter.sh/capacity-type
+              operator: In
+              values: ["spot"]
+
+    # requiredDuringSchedulingIgnoredDuringExecution:
+    #   nodeSelectorTerms:
+    #   - matchExpressions:
+    #     - key: kubernetes.io/arch
+    #       operator: In
+    #       values: ["amd64"]
+
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app: nginx-hpa-test
+          topologyKey: kubernetes.io/hostname
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app: nginx-hpa-test
