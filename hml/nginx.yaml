@@ -12,7 +12,7 @@ spec:
 
   # ✅ TESTE: deixe SEM replicas para ver o default do K8s (1),
   # e depois o HPA ajustando para minReplicas.
-  # replicas: 1
+  replicas: 2
 
   selector:
     matchLabels:
