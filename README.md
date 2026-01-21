@@ -50,13 +50,9 @@ minReplicas: 3
 maxReplicas: 6
 metrics:
   - cpu averageUtilization: 30
+```
 
 
-
-Perfeito — vamos adicionar isso no README como uma seção “comando completo + exemplo de output” ✅
-Aqui vai um bloco pronto pra você colar no `.md` (já com explicação do que cada coluna significa):
-
-````md
 ## 🔎 Verificar AZ + Spot/On-Demand + Arquitetura (pod → node)
 
 Este comando mostra, para cada pod do teste:
@@ -93,9 +89,3 @@ nginx-hpa-test-54bcdb89f5-wkxj7  ip-10-20-22-128.sa-east-1.compute.internal  sa-
 * **Spot**: todos os nodes estão como `spot` (fallback para on-demand não foi necessário nesse teste)
 * **Arquitetura**: mistura de `amd64` e `arm64` (testando multi-arch)
 * `sa-east-1b` aparece duas vezes porque com 4 pods e 3 AZs, a distribuição mais comum é **2 / 1 / 1** (respeitando `maxSkew: 1`)
-
-```
-
-Se você quiser, eu também te mando uma seção curta explicando **por que 1 pod por node** (podAntiAffinity) e **por que 2 pods podem cair na mesma AZ** (maxSkew=1).
-::contentReference[oaicite:0]{index=0}
-```
