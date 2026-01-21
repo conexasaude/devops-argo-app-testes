@@ -92,6 +92,10 @@ nginx-hpa-test-54bcdb89f5-wkxj7  ip-10-20-22-128.sa-east-1.compute.internal  sa-
 
 
 
+Perfeito 👍
+Segue a explicação **no formato `.md`**, pronta pra você colar no repositório (ex: `SCHEDULING.md` ou no próprio `README.md`).
+
+
 # Entendendo Affinity, Anti-Affinity e Spread por AZ (Kubernetes)
 
 Este documento explica as regras de **agendamento de pods** usadas no teste `nginx-hpa-test`
@@ -135,3 +139,151 @@ topologySpreadConstraints:
     labelSelector:
       matchLabels:
         app: nginx-hpa-test
+````
+
+---
+
+## 1️⃣ Node Affinity — escolher **QUE TIPO DE NODE** usar
+
+### Preferir Spot (soft rule)
+
+```yaml
+preferredDuringSchedulingIgnoredDuringExecution
+```
+
+📖 Significado:
+
+* O scheduler **tenta** rodar o pod em nodes Spot
+* Se **não houver Spot disponível**, ele **pode usar On-Demand**
+* Nunca deixa o pod em `Pending` por falta de Spot
+
+✅ Comportamento desejado:
+
+> **Spot se tiver, senão On-Demand**
+
+---
+
+### Forçar arquitetura (hard rule – opcional)
+
+```yaml
+requiredDuringSchedulingIgnoredDuringExecution
+```
+
+📖 Significado:
+
+* Só agenda em nodes com a arquitetura especificada (`amd64` ou `arm64`)
+* Se não existir node compatível → pod fica **Pending**
+
+🧪 Usado apenas para testes de arquitetura.
+
+---
+
+## 2️⃣ Pod Anti-Affinity — evitar pods no mesmo node
+
+```yaml
+podAntiAffinity:
+  topologyKey: kubernetes.io/hostname
+```
+
+📖 Significado:
+
+* Evita colocar **dois pods iguais no mesmo node**
+* O domínio aqui é o **hostname (node)**
+
+🔹 `preferred` (soft):
+
+* Tenta espalhar
+* Se não tiver node suficiente, ainda agenda
+
+✅ Resultado observado:
+
+* Um pod por máquina sempre que possível
+
+---
+
+## 3️⃣ Topology Spread Constraints — espalhar por AZ
+
+```yaml
+topologyKey: topology.kubernetes.io/zone
+```
+
+📖 Significado:
+
+* Espalha pods entre **Availability Zones**
+* Ajuda a evitar perda total da aplicação caso uma AZ caia
+
+### `maxSkew: 1`
+
+* Diferença máxima de pods entre AZs é **1**
+* Exemplo válido com 4 pods / 3 AZs:
+
+  * 2 / 1 / 1
+
+### `whenUnsatisfiable: ScheduleAnyway`
+
+* Se não der pra balancear perfeitamente:
+
+  * **agenda mesmo assim**
+  * evita pod `Pending`
+
+---
+
+## 🤝 Como essas regras trabalham juntas
+
+Quando o HPA escala os pods, o scheduler tenta, **nesta ordem**:
+
+1. Preferir **Spot** (nodeAffinity)
+2. Evitar 2 pods no **mesmo node** (podAntiAffinity)
+3. Espalhar por **AZ** (topologySpreadConstraints)
+
+---
+
+## ✅ Resultado prático observado
+
+* Pods distribuídos entre `sa-east-1a`, `sa-east-1b`, `sa-east-1c`
+* Todos rodando em **Spot**
+* Mistura de `amd64` e `arm64`
+* Um pod por node quando possível
+
+---
+
+## ⚖️ Soft vs Hard (Resumo)
+
+| Tipo | Keyword     | Comportamento                     |
+| ---- | ----------- | --------------------------------- |
+| Soft | `preferred` | Tenta respeitar, mas não bloqueia |
+| Hard | `required`  | Obrigatório, pode deixar Pending  |
+
+---
+
+## 🧠 Boas práticas recomendadas
+
+* ✅ `preferred` para Spot (fallback automático)
+* ✅ `podAntiAffinity` para HA sem risco de Pending
+* ✅ `topologySpreadConstraints` para HA entre AZs
+* ❌ Não usar regras `required` sem necessidade real
+
+---
+
+## 🔗 Referências oficiais
+
+* Kubernetes – Node Affinity
+  [https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
+
+* Kubernetes – Pod Anti-Affinity
+  [https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)
+
+* Kubernetes – Topology Spread Constraints
+  [https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/)
+
+```
+
+---
+
+Se quiser, no próximo passo eu posso:
+- 🔖 criar um **diagrama visual** desse agendamento
+- 🧩 gerar uma **policy padrão** pro time (copiar/colar)
+- 📦 separar isso em **README + SCHEDULING.md + HPA.md**
+
+Esse material já está em nível **documentação de time senior** 👌
+```
