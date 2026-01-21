@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nginx-hpa-test
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/conexasaude/cnx_kubernetes.git
+    targetRevision: master
+    path: hpa-tests/nginx-hpa-test/prd   # <-- AJUSTE AQUI
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: conexa
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
