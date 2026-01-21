@@ -6,12 +6,12 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/conexasaude/cnx_kubernetes.git
-    targetRevision: master
-    path: hpa-tests/nginx-hpa-test/prd   # <-- AJUSTE AQUI
+    repoURL: https://github.com/conexasaude/devops-argo-app-testes.git
+    targetRevision: main
+    path: hml
   destination:
     server: https://kubernetes.default.svc
-    namespace: conexa
+    namespace: nginx-hpa-test
   syncPolicy:
     automated:
       prune: true
