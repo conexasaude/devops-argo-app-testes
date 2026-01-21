@@ -1,4 +1,3 @@
-````md
 # Mudança recomendada: `podAntiAffinity` de **required** → **preferred** (apps com HPA)
 
 Este documento explica **por que** mudar o agendamento (scheduling) do Deployment `conexa-api-pagamento`
