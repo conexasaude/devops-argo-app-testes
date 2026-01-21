@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/conexasaude/devops-argo-app-testes.git  # Repo Git (fonte da verdade)
     targetRevision: main            # Branch/tag/commit que o Argo acompanha
-    path: hml                       # Pasta dentro do repo onde estão os manifests (Deployment/HPA etc)
+    path: stg                       # Pasta dentro do repo onde estão os manifests (Deployment/HPA etc)
 
   destination:
     server: https://kubernetes.default.svc  # Cluster local (onde o Argo está rodando)

@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-hpa-test
+  namespace: conexa
+  labels:
+    app: nginx-hpa-test
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: "50%"
+      maxUnavailable: "25%"
+
+  # -----------------------------------------------------------
+  # 🕹️ CONTROLO DA SIMULAÇÃO (LABORATÓRIO)
+  # -----------------------------------------------------------
+  # MODO 1 (Paz): Mantenha comentado. O Argo aceita o HPA.
+  # MODO 2 (Guerra): Descomente 'replicas: 1'. O Argo lutará contra o HPA.
+  # -----------------------------------------------------------
+  # replicas: 1
+
+  selector:
+    matchLabels:
+      app: nginx-hpa-test
+
+  template:
+    metadata:
+      labels:
+        app: nginx-hpa-test
+    spec:
+      terminationGracePeriodSeconds: 0 # Encerramento rápido para agilizar testes
+
+      containers:
+        - name: stress-cpu
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          # 🔥 O LOOP INFINITO:
+          # Isto força o CPU a trabalhar sem parar.
+          command: ["/bin/sh"]
+          args: ["-c", "while true; do :; done"]
+          
+          resources:
+            requests:
+              cpu: 50m    # Prometemos usar pouco (0.05 core)
+              memory: 64Mi
+            limits:
+              cpu: 200m   # Limitamos a 0.2 core
+              memory: 128Mi
+            # MATEMÁTICA DO TESTE:
+            # O loop tenta usar 1000m (1 core).
+            # O container é barrado em 200m (Limit).
+            # Para o HPA: Uso (200m) / Request (50m) = 400% de utilização!
+            # Como a meta é 30%, ele vai escalar ao máximo instantaneamente.
+
+      # ⚠️ Probes removidos pois o Busybox não tem servidor HTTP (porta 80)
+      # Se mantiver os probes, o pod ficará em CrashLoopBackOff.
+          
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: karpenter.sh/capacity-type
+                    operator: In
+                    values: ["spot"]
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nginx-hpa-test
+  namespace: conexa
+spec:
+  minReplicas: 3
+  maxReplicas: 6
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-hpa-test
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 30

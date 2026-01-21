@@ -9,7 +9,7 @@ spec:
   source:
     repoURL: https://github.com/conexasaude/devops-argo-app-testes.git  # Repo Git onde estão os manifests
     targetRevision: main        # Branch/tag/commit que o Argo vai acompanhar (main/master/tag/sha)
-    path: hml                   # Pasta DENTRO do repo onde estão os YAMLs (k8s/hml, hml, etc)
+    path: stg                   # Pasta DENTRO do repo onde estão os YAMLs (k8s/hml, hml, etc)
 
   destination:
     server: https://kubernetes.default.svc  # Cluster alvo (esse é o "cluster interno" onde o Argo roda)
