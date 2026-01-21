@@ -1,29 +1,41 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: nginx-hpa-test
-  namespace: argocd
+  name: nginx-hpa-test              # Nome do app no ArgoCD (recurso Application)
+  namespace: argocd                 # Namespace onde o ArgoCD roda (geralmente "argocd")
+
 spec:
-  project: default
+  project: default                  # Projeto do ArgoCD (RBAC/políticas). Default = padrão.
+
   source:
-    repoURL: https://github.com/conexasaude/devops-argo-app-testes.git
-    targetRevision: main
-    path: hml
+    repoURL: https://github.com/conexasaude/devops-argo-app-testes.git  # Repo Git (fonte da verdade)
+    targetRevision: main            # Branch/tag/commit que o Argo acompanha
+    path: hml                       # Pasta dentro do repo onde estão os manifests (Deployment/HPA etc)
+
   destination:
-    server: https://kubernetes.default.svc
-    namespace: nginx-hpa-test
+    server: https://kubernetes.default.svc  # Cluster local (onde o Argo está rodando)
+    namespace: nginx-hpa-test               # Namespace de destino onde os recursos serão aplicados
+                                            # (com CreateNamespace=true ele cria esse namespace)
+
   syncPolicy:
     automated:
-      prune: true
-      selfHeal: true
+      prune: true                   # Se remover um YAML do Git, o Argo remove do cluster (limpa recursos órfãos)
+      selfHeal: true                # Se alguém mudar algo no cluster na mão, o Argo tenta voltar pro Git
+                                    # ⚠️ Com HPA, replicas muda fora do Git — por isso usamos ignoreDifferences
+
     syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true
+      - CreateNamespace=true        # Cria o namespace de destino automaticamente se não existir
+      - ServerSideApply=true        # Usa server-side apply (melhor pra merges/campos gerenciados em muitos casos)
       - RespectIgnoreDifferences=true
+                                    # IMPORTANTÍSSIMO: faz o Argo respeitar o ignoreDifferences DURANTE O SYNC,
+                                    # senão ele pode ignorar no diff, mas tentar aplicar no sync mesmo assim.
+                                    # (evita briga Argo x HPA em /spec/replicas)
 
   ignoreDifferences:
+    # Ignora mudanças de campos que são controlados por outros controllers.
+    # Ex: HPA controla Deployment.spec.replicas (scale).
     - group: apps
       kind: Deployment
       name: nginx-hpa-test
       jsonPointers:
-        - /spec/replicas
+        - /spec/replicas            # Ignora drift de replicas (evita OutOfSync/loop causado pelo HPA)
