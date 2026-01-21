@@ -1,10 +1,3 @@
-Com certeza. Preparei um documento completo em formato Markdown (`.md`).
-
-Você pode salvar esse conteúdo como `padrao-hpa-argocd.md` ou `README-HPA.md` e subir no repositório de documentação/wiki do time. Ele está estruturado tecnicamente para encerrar a discussão e definir o padrão.
-
----
-
-```markdown
 # Padrão de Arquitetura: HPA x GitOps (ArgoCD)
 
 **Status:** Definido
