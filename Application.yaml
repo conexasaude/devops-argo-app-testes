@@ -19,7 +19,3 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
-
-
-
-https://github.com/conexasaude/devops-argo-app-testes
