@@ -1,21 +1,29 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: nginx-hpa-test
-  namespace: argocd
+  name: nginx-hpa-test          # Nome do App no ArgoCD (é o recurso Application)
+  namespace: argocd             # Namespace onde o ArgoCD está instalado (normalmente "argocd")
 spec:
-  project: default
+  project: default              # Projeto do ArgoCD (RBAC/políticas/limites). Default é o mais comum.
+
   source:
-    repoURL: https://github.com/conexasaude/devops-argo-app-testes.git
-    targetRevision: main
-    path: hml
+    repoURL: https://github.com/conexasaude/devops-argo-app-testes.git  # Repo Git onde estão os manifests
+    targetRevision: main        # Branch/tag/commit que o Argo vai acompanhar (main/master/tag/sha)
+    path: hml                   # Pasta DENTRO do repo onde estão os YAMLs (k8s/hml, hml, etc)
+
   destination:
-    server: https://kubernetes.default.svc
-    namespace: nginx-hpa-test
+    server: https://kubernetes.default.svc  # Cluster alvo (esse é o "cluster interno" onde o Argo roda)
+    namespace: nginx-hpa-test               # Namespace onde os manifests serão aplicados (destino)
+
   syncPolicy:
     automated:
-      prune: true
-      selfHeal: true
+      prune: true               # Se algo sair do Git (arquivo removido), o Argo DELETA do cluster.
+                                # Ex: tirou um Deployment do repo -> Argo remove do cluster.
+      selfHeal: true            # Se alguém mudar algo no cluster "na mão" (drift), Argo tenta corrigir
+                                # automaticamente para bater com o Git.
+                                # ⚠️ Com HPA e SEM ignoreDifferences, pode brigar por /spec/replicas.
+
     syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true
+      - CreateNamespace=true    # Se o namespace do destination não existir, Argo cria automaticamente.
+      - ServerSideApply=true    # Usa "server-side apply" no kubectl apply.
+                                # Ajuda em merges/campos gerenciados e reduz conflitos em alguns casos.
